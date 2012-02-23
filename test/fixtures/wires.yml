@@ -1,0 +1,19 @@
+# Read about fixtures at http://api.rubyonrails.org/classes/ActiveRecord/Fixtures.html
+
+one:
+  x1: 1.5
+  y1: 1.5
+  x2: 1.5
+  y2: 1.5
+  width: 1.5
+  layer: 
+  board: 
+
+two:
+  x1: 1.5
+  y1: 1.5
+  x2: 1.5
+  y2: 1.5
+  width: 1.5
+  layer: 
+  board: 

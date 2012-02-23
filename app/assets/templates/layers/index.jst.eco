@@ -1,0 +1,6 @@
+<h1>Layers</h1>
+<ul>
+<% for layer in @layers.models: %>
+  <li><%= layer.get('name') %></li>
+<% end %>
+</ul>

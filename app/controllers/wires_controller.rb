@@ -1,0 +1,2 @@
+class WiresController < ApplicationController
+end
