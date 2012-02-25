@@ -1,3 +1,21 @@
-// Place all the styles related to the boards controller here.
+// Place all the styles related to the Boards controller here.
 // They will automatically be included in application.css.
 // You can use Sass (SCSS) here: http://sass-lang.com/
+#canvas
+{
+  border: 1px solid black;
+  height: 400px;
+  width: 500px;
+}
+
+.isResizable {
+  border: 1px solid black;
+  overflow: hidden;
+  resize: both;
+  width: 260px;
+  height: 220px;
+  min-width: 120px;
+  min-height: 90px;
+  max-width: 400px;
+  max-height: 300px;
+}

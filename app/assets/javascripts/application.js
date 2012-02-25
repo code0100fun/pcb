@@ -9,15 +9,13 @@
 //
 // WARNING: THE FIRST BLANK LINE MARKS THE END OF WHAT'S TO BE PROCESSED, ANY BLANK LINE SHOULD
 // GO AFTER THE REQUIRES BELOW.
-//= require kinetic-v3.7.0.js
+//= require kinetic-v3.8.0.js
 //= require jquery
 //= require jquery_ujs
+//= require jquery-ui
 //= require underscore
 //= require backbone
-//= require pcb
-//= require_tree ../templates
-//= require_tree ./models
-//= require_tree ./collections
-//= require_tree ./views
-//= require_tree ./routers
+//= require backbone_rails_sync
+//= require backbone_datalink
+//= require backbone/pcb
 //= require_tree .
