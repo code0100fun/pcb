@@ -39,3 +39,9 @@ gem 'jquery-rails'
 
 # gem 'backbone-on-rails'
 gem 'rails-backbone'
+
+group :development, :test do
+  gem "jasminerice"
+end
+
+# gem 'jasmine', :group => [:development, :test]
