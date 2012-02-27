@@ -6,22 +6,15 @@ class KineticJSAdapter extends RenderAdapter
     console.log('KineticJSAdapter ctor')
     @stage = new Kinetic.Stage(elem, 1000, 450)
     @layer = new Kinetic.Layer()
-    #@layer = @stage.backstageLayer
+    #@flashLayer = new Kinetic.Layer()
     @canvas = @layer.canvas
     @context = @canvas.getContext('2d')
+    #@flashContext = @flashLayer.canvas.getContext('2d')
     @trackTransforms(@context)
-    #svg = document.createElementNS("http://www.w3.org/2000/svg",'svg')
-    #xform = svg.createSVGMatrix()
-    #pt  = svg.createSVGPoint()
-    
-    #@context.getTransform = () ->
-    #  xform
-    
-    #@context.transformedPoint = (x,y) ->
-    #  pt.x=x; pt.y=y;
-    #	 pt.matrixTransform(xform.inverse())
-    
+    #@trackTransforms(@flashContext)
+
     @stage.add(@layer)
+    #@stage.add(@flashLayer)
     
     @x = 10
     @y = 10
@@ -30,24 +23,16 @@ class KineticJSAdapter extends RenderAdapter
     @scaleFactor = 1.01
     @lastX = 0
     @lastY = 0
-    #@layer.setPosition(@x,@y)
-    #@stage.setScale(@scale)
+    @letters = '0123456789ABCDEF'.split('')
     @canvas.addEventListener 'mousemove', (evt) =>
       @lastX = evt.offsetX || (evt.pageX - canvas.offsetLeft)  
       @lastY = evt.offsetY || (evt.pageY - canvas.offsetTop)
-      #console.log "mousemove x #{@lastX} y #{@lastY}"
   
-  init: () =>
-    @context.beginPath() 
-    
   moveX : (val) =>  
-    #@x += val
     @context.translate((val/@scaleOffset)*0.5, 0);
     @clear()
     
   moveY : (val) =>  
-    #@y += val
-    #@layer.setPosition(@x, @y);
     @context.translate(0, (val/@scaleOffset)*0.5);
     @clear()
   
@@ -69,6 +54,7 @@ class KineticJSAdapter extends RenderAdapter
     @context.setTransform(1,0,0,1,0,0) 
     @context.clearRect(0,0,@canvas.width,@canvas.height) 
     @context.restore()
+    @layer.draw()
   
   drawCrosshair: (x,y) =>
     @context.beginPath()
@@ -96,25 +82,73 @@ class KineticJSAdapter extends RenderAdapter
   macro: (params) =>
     #console.log "macro"
   apertureDef: (params) =>
-    #console.log "apertureDef"
+    #console.log params
+    if(@drawingPath)
+      @end()
+    @context.beginPath()  
+    @drawingPath = true
+    #define aperture
+    if(params.type == "circle")
+      @aperture = 
+        flash : (x,y) =>
+          @context.save()
+          #@context.beginPath();
+          #@context.arc(@transformX x, @transformY y, params.outerDiam * @scale, 0, Math.PI*2, false); 
+          #if(!@drawingPath)
+          @context.lineWidth = 1
+          @context.strokeStyle = "#F00"
+          @context.fillStyle = "#0F0"
+          #@context.stroke()
+          #@context.closePath()
+          #  @context.beginPath()
+          #@context.fillStyle = @randomColor()
+          #@context.fill();
+          #@context.fillRect(@transformX x, @transformY y,params.outerDiam * @scale,params.outerDiam * @scale)
+          #if(!@drawingPath)
+          #  @context.closePath()
+          #@context.fill() 
+          #@context.beginPath()
+          #console.log "flash"
+          @context.restore()
+      
+  randomColor: () ->
+      color = '#'
+      for i in [1..6]
+          color += @letters[Math.round(Math.random() * 15)]
+      return color
+
   select: (params) =>
     #console.log "select"
     
   moveTo: (params) =>
-    x = (params.x*@scale)+@x
-    y = @canvas.height - ((params.y * @scale) + @y)
+    x = @transformX params.x
+    y = @transformY params.y
     @context.moveTo(x, y)
+  
+  transformX: (x) =>
+    (x*@scale)+@x
+    
+  transformY: (y) =>
+    @canvas.height - ((y * @scale) + @y)
     
   drawTo: (params) =>
-    x = (params.x*@scale)+@x
-    y = @canvas.height - ((params.y * @scale) + @y)
-    @context.lineTo(x, y)
+    #console.log params
+    x = @transformX params.x
+    y = @transformY params.y
+    @context.lineTo x, y
     
+  flash: (params) =>
+    #console.log params
+    @aperture.flash params.x, params.y
+        
   end: (params) =>
-    @context.lineWidth = 1
-    @context.strokeStyle = "#00F"
-    @context.stroke()
-    @context.closePath()
+    if(@drawingPath)
+      @context.lineWidth = 1
+      @context.strokeStyle = "#00F"
+      @context.fillStyle = "#0F0"
+      @context.stroke()
+      #@context.closePath()
+      @drawingPath = false
     
   # Adds ctx.getTransform() - returns an SVGMatrix
   # Adds ctx.transformedPoint(x,y) - returns an SVGPoint

@@ -15,6 +15,7 @@ class GerberParser
     @commands = 
       2 : 'moveTo'
       1 : 'drawTo'
+      3 : 'flash'
     @shapes = 
       'C' : 'circle'
       'R' : 'rectangle'

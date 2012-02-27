@@ -56,10 +56,9 @@ class Pcb.Views.Boards.ShowView extends Backbone.View
     @render()
     
   render: =>
-    console.log "render"
-    @device.init()  
+    #console.log "render"
     for i,command of @commands
-      @device[command.command].call(@device, command) if command != null && @device[command.command]
+      @device[command.command](command) if command != null && @device[command.command]
     return this
     
   initialize : () =>
