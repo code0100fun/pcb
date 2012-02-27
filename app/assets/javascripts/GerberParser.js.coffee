@@ -6,7 +6,11 @@ class GerberParser
       'parseADD' : /%ADD([1-9]{1}[0-9]{1}[0-9]?)(C|R|O|P),([0-9]*.[0-9]*)(X([0-9]*.[0-9]*))*\*%/
       'parseSelect': /D([1-9]{1}[0-9]{1}[0-9]?)\*/
       'parseEnd': /M02\*/
-      'parseMacro': /^%AM.*%$/
+      'parseMacro': /^%AM(OC8)\*(.*)\*%$/
+      'parseG': /^G([0-9][0-9])\*$/
+      'parseOffset': /^%OFA([0-9]*.?[0-9]*)B([0-9]*.?[0-9]*)\*%$/
+      'parseIP' : /^%IP(POS|NEG)\*%$/
+      'parseLP' : /^%LP(C|D)\*%$/
     @commands = 
       2 : 'moveTo'
       1 : 'drawTo'
@@ -30,6 +34,19 @@ class GerberParser
       5 : 'polygon' 
       6 : 'moire'
       7 : 'thermal' 
+    @paramTypes =
+      exposure: 'boolean'
+    @generalCodes =
+      1: 'linearInterp'
+      2: 'cwCircInterp'
+      3: 'ccwCircInterp'
+      4: 'comment'
+      70: 'inches'
+      71: 'millimeters'
+      74: 'singleQuad'
+      75: 'multiQuad'
+      90: 'absolute'
+      91: 'incremental'
     @primParams =
       1 :  ['exposure', 'diameter', 'x', 'y']
       2 :  ['exposure', 'width', 'x1', 'y1', 'x2', 'y2', 'rotation']
@@ -65,8 +82,8 @@ class GerberParser
     match = match || line.match(@patterns.parseD)
     return null if match == null
     return (
-      command: @commands[parseInt(match[3])],
-      x: parseFloat(match[1])/1000, 
+      command: @commands[parseInt(match[3])]
+      x: parseFloat(match[1])/1000
       y: parseFloat(match[2])/1000 
     )
     
@@ -122,8 +139,63 @@ class GerberParser
     # %
     match = match || line.match(@patterns.parseMacro)
     return null if match == null
-    return (
+    name = match[1]
+    params = match[2]
+    match = params.match(/([^,]*),?/g)
+    command = (
       command:'macro'
-    )       
+      name:name
+    )  
+    shape = parseInt(match[0])
+    command.primative = @primatives[shape]
+    for i,v of @primParams[shape]
+      type = @paramTypes[v]
+      m = parseInt(i) + 1
+      command[v] =  @convert match[m], type
+    return command
+  
+  parseG: (line, match) => # General command
+    # G70*
+    # G75*
+    match = match || line.match(@patterns.parseD)
+    return null if match == null
+    return (
+      command: @generalCodes[parseInt(match[1])]
+    )
+    
+  parseOffset: (line, match) => # Offset command
+    # %OFA0B0*%
+    match = match || line.match(@patterns.parseD)
+    return null if match == null
+    return (
+      command: 'offset'
+      a: match[1]
+      b: match[2]
+    ) 
+  
+  parseIP: (line, match) => # Image polarity command
+    # %IPPOS*%
+    match = match || line.match(@patterns.parseD)
+    return null if match == null
+    return (
+      command: 'imagePolarity'
+      polarity: if match[1] == 'NEG' then 'negative' else 'positive'
+    )
+  
+  parseLP: (line, match) => # Layer polarity command
+    # %LPD*%
+    match = match || line.match(@patterns.parseD)
+    return null if match == null
+    return (
+      command: 'layerPolarity'
+      polarity: if match[1] == 'C' then 'clear' else 'dark'
+    )
+       
+  convert: (value, type) ->
+    switch(type)
+      when 'boolean'
+        value = value != '0'
+      else  value = parseFloat value
+    return value
     
 window.GerberParser = GerberParser

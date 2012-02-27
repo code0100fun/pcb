@@ -1,14 +1,8 @@
 Pcb::Application.routes.draw do
   
   resources :boards
-
-  #scope "api" do
-    resources :wires
-    resources :boards
-    resources :layers
-  #end
   
-  root :to => 'main#index'
+  root :to => 'boards#index'
   # The priority is based upon order of creation:
   # first created -> highest priority.
 

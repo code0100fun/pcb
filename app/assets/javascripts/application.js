@@ -18,4 +18,6 @@
 //= require backbone_rails_sync
 //= require backbone_datalink
 //= require backbone/pcb
+//= require GerberParser
+//= require RenderAdapter
 //= require_tree .
