@@ -1,5 +1,6 @@
 class GerberParser
   constructor: () ->
+    console.log('GerberParser ctor')
     @patterns =
       'parseD' : /X([0-9]*)Y([0-9]*)D([0-9]*)\*/
       'parseFS' : /%FS(L|T|D)(A|I)X([0-7])([0-7])Y([0-7])([0-7])\*%/

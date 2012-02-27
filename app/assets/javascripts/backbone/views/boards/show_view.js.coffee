@@ -2,21 +2,74 @@ Pcb.Views.Boards ||= {}
 
 class Pcb.Views.Boards.ShowView extends Backbone.View
   template: JST["backbone/templates/boards/show"]
-
-  render: ->
-    $(@el).html(@template(@model.toJSON() ))
+  
+  events :
+    "click #zoomIn"    : "zoomIn"
+    "click #zoomOut"   : "zoomOut"
+    "click #moveLeft"  : "moveLeft"
+    "click #moveRight" : "moveRight"
+    "click #moveUp"    : "moveUp"
+    "click #moveDown"  : "moveDown"
+    "mousewheel #canvas canvas" : "mouseWheel"
+    "mousedown #canvas canvas"  : "mouseDown"
+    "mousemove #canvas canvas"  : "mouseMove"
+    "mouseup #canvas canvas"    : "mouseUp"
+    "mouseleave #canvas canvas" : "mouseUp"
+  mouseDown: (e) =>  
+    @draging = true
+    @x = e.clientX
+    @y = e.clientY
+  mouseMove: (e) =>  
+    if(@draging)  
+      @device.moveX(e.clientX - @x)
+      @device.moveY(e.clientY - @y)
+      @x = e.clientX
+      @y = e.clientY
+      @render()
     
-    device = new KineticJSAdapter(this.$('#canvas')[0])
-    parser = new GerberParser()
-    commands = parser.parse(@lines)
+  mouseUp: (e) =>  
+    @draging = false
+  mouseWheel: (e) =>
+    e.preventDefault()
+    delta = e.originalEvent.wheelDelta
+    @device.zoom(delta)
+    @render()
+    return false
+      
+  zoomIn: =>
+    @device.zoom(5,true)
+    @render()
+  zoomOut: =>
+    @device.zoom(-5,true)
+    @render()
+  moveLeft: =>
+    @device.moveX(-5)
+    @render()
+  moveRight: =>
+    @device.moveX(5)
+    @render()
+  moveUp: =>
+    @device.moveY(-5)
+    @render()
+  moveDown: =>
+    @device.moveY(5)
+    @render()
     
-    for i,command of commands
-      #console.log command
-      device[command.command].call(device, command) if command != null && device[command.command]
-    
+  render: =>
+    console.log "render"
+    @device.init()  
+    for i,command of @commands
+      @device[command.command].call(@device, command) if command != null && @device[command.command]
     return this
     
-  initialize : () ->
+  initialize : () =>
+    @loadLines()
+    $(@el).html(@template({name:'test'}))
+    @device = new KineticJSAdapter(this.$('#canvas')[0])
+    @parser = new GerberParser()
+    @commands = @parser.parse(@lines)
+    
+  loadLines: () =>
     @lines = 'G75*
     G70*
     %OFA0B0*%
@@ -22471,3 +22524,4 @@ class Pcb.Views.Boards.ShowView extends Backbone.View
     D48*
     X033388Y013850D03*
     M02*'.split(/\s+/m)
+    
