@@ -37,22 +37,22 @@ class Pcb.Views.Boards.ShowView extends Backbone.View
     return false
       
   zoomIn: =>
-    @device.zoom(5,true)
+    @device.zoom(20,true)
     @render()
   zoomOut: =>
-    @device.zoom(-5,true)
+    @device.zoom(-20,true)
     @render()
   moveLeft: =>
-    @device.moveX(-5)
+    @device.moveX(-20)
     @render()
   moveRight: =>
-    @device.moveX(5)
+    @device.moveX(20)
     @render()
   moveUp: =>
-    @device.moveY(-5)
+    @device.moveY(-20)
     @render()
   moveDown: =>
-    @device.moveY(5)
+    @device.moveY(20)
     @render()
     
   render: =>

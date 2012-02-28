@@ -6,15 +6,15 @@ class KineticJSAdapter extends RenderAdapter
     console.log('KineticJSAdapter ctor')
     @stage = new Kinetic.Stage(elem, 1000, 450)
     @layer = new Kinetic.Layer()
-    #@flashLayer = new Kinetic.Layer()
+    @flashLayer = new Kinetic.Layer()
     @canvas = @layer.canvas
     @context = @canvas.getContext('2d')
-    #@flashContext = @flashLayer.canvas.getContext('2d')
+    @flashContext = @flashLayer.canvas.getContext('2d')
     @trackTransforms(@context)
     #@trackTransforms(@flashContext)
-
+    
+    @stage.add(@flashLayer)
     @stage.add(@layer)
-    #@stage.add(@flashLayer)
     
     @x = 10
     @y = 10
@@ -30,11 +30,15 @@ class KineticJSAdapter extends RenderAdapter
   
   moveX : (val) =>  
     @context.translate((val/@scaleOffset)*0.5, 0);
-    @clear()
+    @flashContext.translate((val/@scaleOffset)*0.5, 0);
+    @clear(@context)
+    @clear(@flashContext)
     
   moveY : (val) =>  
     @context.translate(0, (val/@scaleOffset)*0.5);
-    @clear()
+    @flashContext.translate(0, (val/@scaleOffset)*0.5);
+    @clear(@context)
+    @clear(@flashContext)
   
   zoom : (val, center) =>
     if(center)
@@ -43,18 +47,22 @@ class KineticJSAdapter extends RenderAdapter
       pt = @context.transformedPoint(@lastX,@lastY)
     
     @context.translate(pt.x,pt.y)
+    @flashContext.translate(pt.x,pt.y)
     @scaleOffset = Math.pow(@scaleFactor,val)
     @context.scale(@scaleOffset,@scaleOffset)
+    @flashContext.scale(@scaleOffset,@scaleOffset)
     @context.translate(-pt.x,-pt.y)
-    @clear()
+    @flashContext.translate(-pt.x,-pt.y)
+    @clear(@context)
+    @clear(@flashContext)
     @drawCrosshair(pt.x,pt.y)
   
-  clear: () =>
-    @context.save() 
-    @context.setTransform(1,0,0,1,0,0) 
-    @context.clearRect(0,0,@canvas.width,@canvas.height) 
-    @context.restore()
-    @layer.draw()
+  clear: (ctx) =>
+    ctx.save() 
+    ctx.setTransform(1,0,0,1,0,0) 
+    ctx.clearRect(0,0,@canvas.width,@canvas.height) 
+    ctx.restore()
+    #@layer.draw()
   
   drawCrosshair: (x,y) =>
     @context.beginPath()
@@ -83,33 +91,35 @@ class KineticJSAdapter extends RenderAdapter
     #console.log "macro"
   apertureDef: (params) =>
     #console.log params
-    if(@drawingPath)
-      @end()
-    @context.beginPath()  
-    @drawingPath = true
+    if(!@context.drawingPath)
+      @context.beginPath()  
+      @context.drawingPath = true
     #define aperture
     if(params.type == "circle")
+      width = params.outerDiam * @scale *2
       @aperture = 
         flash : (x,y) =>
-          @context.save()
-          #@context.beginPath();
-          #@context.arc(@transformX x, @transformY y, params.outerDiam * @scale, 0, Math.PI*2, false); 
-          #if(!@drawingPath)
-          @context.lineWidth = 1
-          @context.strokeStyle = "#F00"
-          @context.fillStyle = "#0F0"
-          #@context.stroke()
-          #@context.closePath()
-          #  @context.beginPath()
-          #@context.fillStyle = @randomColor()
-          #@context.fill();
-          #@context.fillRect(@transformX x, @transformY y,params.outerDiam * @scale,params.outerDiam * @scale)
-          #if(!@drawingPath)
-          #  @context.closePath()
-          #@context.fill() 
-          #@context.beginPath()
-          #console.log "flash"
-          @context.restore()
+          xt = @transformX(x)
+          yt = @transformY(y)
+          @drawCircle(@flashContext,(xt), (yt),width*2)
+  
+  createContext: (width,height) =>
+    tmpCanvas = document.createElement('canvas')
+    tmpCanvas.width = width
+    tmpCanvas.height = height
+    tmpCanvas.getContext('2d')
+    
+  drawCircle: (ctx,x,y,d) =>
+    ctx.beginPath()
+    ctx.fillStyle = "#F00"
+    #ctx.strokeStyle = "#F00"
+    #ctx.scale(0.1,0.1)
+    ctx.arc(x, y, d, 0, Math.PI*2, false)
+    #ctx.fillRect(x, y, d, d);
+    #ctx.lineWidth = 1
+    ctx.fill()
+    #ctx.stroke()
+    ctx.closePath()
       
   randomColor: () ->
       color = '#'
@@ -124,6 +134,8 @@ class KineticJSAdapter extends RenderAdapter
     x = @transformX params.x
     y = @transformY params.y
     @context.moveTo(x, y)
+    if(!@firstmove)
+      @firstmove = {x:x,y:y}
   
   transformX: (x) =>
     (x*@scale)+@x
@@ -142,13 +154,16 @@ class KineticJSAdapter extends RenderAdapter
     @aperture.flash params.x, params.y
         
   end: (params) =>
-    if(@drawingPath)
+    if(@context.drawingPath)
       @context.lineWidth = 1
       @context.strokeStyle = "#00F"
       @context.fillStyle = "#0F0"
+      if(@firstmove)
+        console.log "goto first"
+        @moveTo(@firstmove) 
       @context.stroke()
       #@context.closePath()
-      @drawingPath = false
+      @context.drawingPath = false
     
   # Adds ctx.getTransform() - returns an SVGMatrix
   # Adds ctx.transformedPoint(x,y) - returns an SVGPoint
