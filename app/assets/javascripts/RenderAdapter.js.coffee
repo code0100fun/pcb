@@ -2,9 +2,9 @@ class RenderAdapter
   constructor: () ->
     
 class KineticJSAdapter extends RenderAdapter
-  constructor: (elem) ->
+  constructor: (elem, width, height, scale, x, y) ->
     console.log('KineticJSAdapter ctor')
-    @stage = new Kinetic.Stage(elem, 1000, 450)
+    @stage = new Kinetic.Stage(elem, width||1000, height||450)
     @layer = new Kinetic.Layer()
     @flashLayer = new Kinetic.Layer()
     @canvas = @layer.canvas
@@ -13,12 +13,22 @@ class KineticJSAdapter extends RenderAdapter
     @trackTransforms(@context)
     #@trackTransforms(@flashContext)
     
+    #--------- Cached Values
+    @cachedPolyAngles = {}
+    @cachedPolyPoints = {}
+    @pi2 = Math.PI/2
+    @degToRad = Math.PI/180
+    #---------------------
+    
     @stage.add(@flashLayer)
     @stage.add(@layer)
     
-    @x = 10
-    @y = 10
-    @scale = 15
+    @customShapes = {}
+    @apertures = {}
+    @apertureParams = {}
+    @x = x == undefined ? 10 : x
+    @y = y == undefined ? 10 : y
+    @scale = scale || 5
     @scaleOffset = 1
     @scaleFactor = 1.01
     @lastX = 0
@@ -76,66 +86,165 @@ class KineticJSAdapter extends RenderAdapter
     @context.closePath()
         
   multiQuad: (params) =>
-    #console.log "multiQuad"
   inches: (params) =>
-    #console.log "inches"
   offset: (params) =>
-    #console.log "offset"
   formatSpec: (params) =>
-    #console.log "formatSpec"
   imagePolarity: (params) =>
-    #console.log "imagePolarity"
   layerPolarity: (params) =>
-    #console.log "layerPolarity"
+  
   macro: (params) =>
-    #console.log "macro"
+    @customShapes[params.name] = params
+    @customShapes[params.name].flash = (x,y,p) =>
+      @drawPoly @flashContext,x,y,
+      (p.param1||1)*(params.diameter||1) * @scale * 5,
+      params.sides,
+      params.rotation
+      
   apertureDef: (params) =>
-    #console.log params
     if(!@context.drawingPath)
       @context.beginPath()  
       @context.drawingPath = true
     #define aperture
+    aperture = { lineWidth: params.outerDiam * @scale }
+    @apertures[params.code] = aperture
+    @aperture = params.code
+    
+    @context.lineWidth = aperture.lineWidth;
+    @context.strokeStyle = "#F00"
+    @context.fillStyle = "#F00"
+    
     if(params.type == "circle")
-      width = params.outerDiam * @scale *2
-      @aperture = 
-        flash : (x,y) =>
-          xt = @transformX(x)
-          yt = @transformY(y)
-          @drawCircle(@flashContext,(xt), (yt),width*2)
-  
+      width = params.outerDiam * @scale #todo - figure out proper scale
+      aperture.moveTo = (x,y) =>
+      aperture.lineTo = (x,y) =>
+        @drawCircleLine(@context, x,y, @position.x, @position.y, width)
+      aperture.flash = (x,y) =>
+        @drawCircle(@flashContext, x, y, width*2)
+    else if (params.type == "rectangle")
+      aperture.flash = (x,y) =>
+        @drawRect @flashContext, x,y,params.outerHeight*@scale, params.outerWidth*@scale
+    else if (@customShapes[params.type])
+      aperture.flash = @customShapes[params.type].flash
+    
+    @apertureParams[params.code] = params
+        
   createContext: (width,height) =>
     tmpCanvas = document.createElement('canvas')
     tmpCanvas.width = width
     tmpCanvas.height = height
     tmpCanvas.getContext('2d')
+  
+  polyAngles: memoize (sides, rot) ->
+    #console.log "polyAngles #{sides},#{rot}"
+    angles = []
+    pi2_s = (2 * Math.PI) / sides
+    rotRad = rot*(Math.PI/180)
+
+    for i in [0..sides]
+      angles[i] = {
+        cos: Math.cos((pi2_s * i)+rotRad)
+        sin: Math.sin((pi2_s * i)+rotRad)
+      }
+      
+  polyPoints: memoize (x,y,d,sides,rot) ->
+    #console.log "polyPoints #{x} #{y} #{d} #{sides} #{rot}"
+    r = d/2
+    angles = @polyAngles sides, rot
+    points = []
+    for i in [0..sides]
+      xi = x + r * angles[i].cos
+      yi = y + r * angles[i].sin
+      points[i] = {x:xi,y:yi}
+      
+  drawPoly: (ctx,x,y,d,sides, rot) =>
+    ctx.beginPath()
+    ctx.fillStyle = "#0FF"
+    ctx.strokeStyle = "#0FF"
+
+    points = @polyPoints x,y,d,sides,rot
+    ctx.moveTo points[0].x, points[0].y
+    for i in [1..sides]
+      ctx.lineTo points[i].x, points[i].y
+
+    ctx.fill()
+      
+  drawRect: (ctx,x,y,w,h) =>
+    ctx.save()
+    ctx.fillStyle = "#FF0"
+    ctx.strokeStyle = "#FF0"
+    ctx.fillRect(x-w/2, y-h/2, w, h);
+    ctx.fill()
+    ctx.restore()
+  
+  cos: memoize (rads, offset, minus) ->
+    if minus
+      return Math.cos(rads - offset)
+    else
+      return Math.cos(rads + offset)
+  
+  sin: memoize (rads, offset, minus) ->
+    if minus
+      return Math.sin(rads - offset)
+    else
+      return Math.sin(rads + offset)
+      
+  atan2: memoize (dy, dx) ->
+    return Math.atan2(dy, dx)
+          
+  circPoints: memoize (x1, y1, x2, y2, r) ->
+    dx = x2 - x1
+    dy = y2 - y1
+    points = { x:{1:{},2:{}}, y: {1:{},2:{}} }
+    points.rads = @atan2(dy, dx)
+    #points.x[1][1] = x1 + r * @cos(points.rads, @pi2, true)
+    #points.y[1][1] = y1 + r * @sin(points.rads, @pi2, true)
+    points.x[1][2] = x1 + r * @cos(points.rads, @pi2, false)
+    points.y[1][2] = y1 + r * @sin(points.rads, @pi2, false)
+    points.x[2][1] = x2 + r * @cos(points.rads, @pi2, true)
+    points.y[2][1] = y2 + r * @sin(points.rads, @pi2, true)
+    #points.x[2][2] = x2 + r * @cos(points.rads, @pi2, false)
+    #points.y[2][2] = y2 + r * @sin(points.rads, @pi2, false)
+    return points
+  
+  drawCircleLine: (ctx,x1,y1,x2,y2,d) =>
+    ctx.beginPath()
+    ctx.fillStyle = "#F00"
+    ctx.strokeStyle = "#F00"
     
+    points = @circPoints x1,y1,x2,y2,d
+    
+    ctx.arc(x1, y1, d, points.rads+@pi2, points.rads-@pi2, false)
+    ctx.lineTo points.x[2][1], points.y[2][1]
+ 
+    ctx.arc(x2, y2, d, points.rads-@pi2, points.rads+@pi2, false)
+    ctx.lineTo points.x[1][2], points.y[1][2]
+    #ctx.lineWidth = 1
+    ctx.fill()
+          
   drawCircle: (ctx,x,y,d) =>
     ctx.beginPath()
     ctx.fillStyle = "#F00"
-    #ctx.strokeStyle = "#F00"
-    #ctx.scale(0.1,0.1)
+    ctx.strokeStyle = "#F00"
     ctx.arc(x, y, d, 0, Math.PI*2, false)
-    #ctx.fillRect(x, y, d, d);
-    #ctx.lineWidth = 1
     ctx.fill()
-    #ctx.stroke()
-    ctx.closePath()
       
   randomColor: () ->
-      color = '#'
-      for i in [1..6]
-          color += @letters[Math.round(Math.random() * 15)]
-      return color
+    color = '#'
+    for i in [1..6]
+      color += @letters[Math.round(Math.random() * 15)]
+    return color
 
   select: (params) =>
-    #console.log "select"
+    @aperture = params.code
+    @context.lineWidth = @apertures[@aperture].lineWidth || 1
     
   moveTo: (params) =>
-    x = @transformX params.x
-    y = @transformY params.y
-    @context.moveTo(x, y)
+    xt = @transformX params.x
+    yt = @transformY params.y
+    @position = {x:xt,y:yt}
+    @apertures[@aperture].moveTo xt, yt, @apertureParams[@aperture]
     if(!@firstmove)
-      @firstmove = {x:x,y:y}
+      @firstmove = {x:xt,y:yt}
   
   transformX: (x) =>
     (x*@scale)+@x
@@ -144,25 +253,22 @@ class KineticJSAdapter extends RenderAdapter
     @canvas.height - ((y * @scale) + @y)
     
   drawTo: (params) =>
-    #console.log params
-    x = @transformX params.x
-    y = @transformY params.y
-    @context.lineTo x, y
+    xt = @transformX params.x
+    yt = @transformY params.y
+    @apertures[@aperture].lineTo xt, yt, @apertureParams[@aperture]
+    @position = {x:xt,y:yt}
     
   flash: (params) =>
-    #console.log params
-    @aperture.flash params.x, params.y
+    xt = @transformX params.x
+    yt = @transformY params.y
+    @apertures[@aperture].flash xt, yt, @apertureParams[@aperture]
+    @position = {x:xt,y:yt}
         
   end: (params) =>
     if(@context.drawingPath)
-      @context.lineWidth = 1
-      @context.strokeStyle = "#00F"
-      @context.fillStyle = "#0F0"
       if(@firstmove)
-        console.log "goto first"
         @moveTo(@firstmove) 
       @context.stroke()
-      #@context.closePath()
       @context.drawingPath = false
     
   # Adds ctx.getTransform() - returns an SVGMatrix

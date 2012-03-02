@@ -20,3 +20,18 @@
   max-width: 400px;
   max-height: 300px;
 }
+
+.testCanvas
+{
+  border: 1px solid black;
+  background-color:#000;
+  height:100px;
+  width:100px;
+}
+
+.testBox
+{
+  display: inline-block;
+  padding:10px;
+  max-width: 100px;
+}

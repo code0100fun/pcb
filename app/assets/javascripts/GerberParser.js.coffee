@@ -4,7 +4,7 @@ class GerberParser
     @patterns =
       'parseD' : /X([0-9]*)Y([0-9]*)D([0-9]*)\*/
       'parseFS' : /%FS(L|T|D)(A|I)X([0-7])([0-7])Y([0-7])([0-7])\*%/
-      'parseADD' : /%ADD([1-9]{1}[0-9]{1}[0-9]?)(C|R|O|P),([0-9]*.[0-9]*)(X([0-9]*.[0-9]*))*\*%/
+      'parseADD' : /%ADD([1-9]{1}[0-9]{1}[0-9]?)([^,]*),([0-9]*.[0-9]*)(X([0-9]*.[0-9]*))*\*%/
       'parseSelect': /D([1-9]{1}[0-9]{1}[0-9]?)\*/
       'parseEnd': /M02\*/
       'parseMacro': /^%AM(OC8)\*(.*)\*%$/
@@ -65,6 +65,7 @@ class GerberParser
     _.each lines, (line) =>
       if (line.match(/%.*/) || lineToParse != '') && !(line.match /%.*%/)
         lineToParse += line
+        #console.log "lineToParse:  #{lineToParse}"
       if lineToParse == '' || lineToParse.match /^%.*%$/
         lineToParse = line if lineToParse == ''
         parsed.push @matchCommand lineToParse
@@ -110,12 +111,15 @@ class GerberParser
     command = (
       command:'apertureDef'
       code:parseInt(match[1])
-      type:@shapes[match[2]]
-    )  
-    command[@shapeParams[match[2]][0]] = match[3] && parseFloat(match[3])
-    command[@shapeParams[match[2]][1]] = match[5] && parseFloat(match[5])
-    command[@shapeParams[match[2]][2]] = match[7] && parseFloat(match[7])
-    command[@shapeParams[match[2]][3]] = match[9] && parseFloat(match[9])
+      type:@shapes[match[2]] || match[2]
+    )
+    params = @shapeParams[match[2]] || ['param1','param2','param3','param4']
+    #console.log match[2]
+    command[params[0]] = match[3] && parseFloat(match[3])
+    command[params[1]] = match[5] && parseFloat(match[5])
+    command[params[2]] = match[7] && parseFloat(match[7])
+    command[params[3]] = match[9] && parseFloat(match[9])
+    #console.log match
     return command
   
   parseSelect: (line, match) => # Aperture select

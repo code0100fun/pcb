@@ -4,12 +4,17 @@ class Pcb.Routers.BoardsRouter extends Backbone.Router
     @boards.reset options.boards
 
   routes:
+    "/tests"    : "tests"
     "/new"      : "newBoard"
     "/index"    : "index"
     "/:id/edit" : "edit"
     "/:id"      : "show"
     ".*"        : "index"
-
+    
+  tests: ->
+    @view = new Pcb.Views.Boards.TestsView()
+    $("#boards").html(@view.render().el)
+  
   newBoard: ->
     @view = new Pcb.Views.Boards.NewView(collection: @boards)
     $("#boards").html(@view.render().el)
