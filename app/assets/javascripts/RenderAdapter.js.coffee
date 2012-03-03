@@ -37,18 +37,22 @@ class KineticJSAdapter extends RenderAdapter
     @canvas.addEventListener 'mousemove', (evt) =>
       @lastX = evt.offsetX || (evt.pageX - canvas.offsetLeft)  
       @lastY = evt.offsetY || (evt.pageY - canvas.offsetTop)
+    
+    @updateBounds()
   
   moveX : (val) =>  
     @context.translate((val/@scaleOffset)*0.5, 0);
     @flashContext.translate((val/@scaleOffset)*0.5, 0);
     @clear(@context)
     @clear(@flashContext)
+    @updateBounds()
     
   moveY : (val) =>  
     @context.translate(0, (val/@scaleOffset)*0.5);
     @flashContext.translate(0, (val/@scaleOffset)*0.5);
     @clear(@context)
     @clear(@flashContext)
+    @updateBounds()
   
   zoom : (val, center) =>
     if(center)
@@ -57,6 +61,7 @@ class KineticJSAdapter extends RenderAdapter
       pt = @context.transformedPoint(@lastX,@lastY)
     
     @context.translate(pt.x,pt.y)
+    #console.log @context.getTransform()
     @flashContext.translate(pt.x,pt.y)
     @scaleOffset = Math.pow(@scaleFactor,val)
     @context.scale(@scaleOffset,@scaleOffset)
@@ -66,14 +71,22 @@ class KineticJSAdapter extends RenderAdapter
     @clear(@context)
     @clear(@flashContext)
     @drawCrosshair(pt.x,pt.y)
-  
+    @updateBounds()
+    
+  updateBounds: () =>
+    @topLeft = @context.transformedPoint 0,0
+    @botRight = @context.transformedPoint @canvas.width,@canvas.height
+    
   clear: (ctx) =>
     ctx.save() 
     ctx.setTransform(1,0,0,1,0,0) 
-    ctx.clearRect(0,0,@canvas.width,@canvas.height) 
+    ctx.clearRect(0,0,ctx.canvas.width,ctx.canvas.height) 
     ctx.restore()
     #@layer.draw()
   
+  visible: (x,y) =>
+    return !!(x > @topLeft.x && x < @botRight.x && y > @topLeft.y && y < @botRight.y)
+    
   drawCrosshair: (x,y) =>
     @context.beginPath()
     @context.moveTo(x, y-4)
@@ -96,7 +109,7 @@ class KineticJSAdapter extends RenderAdapter
     @customShapes[params.name] = params
     @customShapes[params.name].flash = (x,y,p) =>
       @drawPoly @flashContext,x,y,
-      (p.param1||1)*(params.diameter||1) * @scale * 5,
+      (p.param1||1)*(params.diameter||1) * @scale,
       params.sides,
       params.rotation
       
@@ -114,16 +127,32 @@ class KineticJSAdapter extends RenderAdapter
     @context.fillStyle = "#F00"
     
     if(params.type == "circle")
-      width = params.outerDiam * @scale #todo - figure out proper scale
+      width = params.outerDiam * @scale#todo - figure out proper scale
       aperture.moveTo = (x,y) =>
       aperture.lineTo = (x,y) =>
         @drawCircleLine(@context, x,y, @position.x, @position.y, width)
       aperture.flash = (x,y) =>
-        @drawCircle(@flashContext, x, y, width*2)
+        @drawCircle(@flashContext, x, y, width)
     else if (params.type == "rectangle")
+      aperture.moveTo = (x,y) =>
+        #console.log "rectangle moveTo #{x}, #{y}"
+      aperture.lineTo = (x,y) =>
+        console.log "rectangle lineTo #{x}, #{y}"
       aperture.flash = (x,y) =>
-        @drawRect @flashContext, x,y,params.outerHeight*@scale, params.outerWidth*@scale
+        #console.log "rectangle flash #{x}, #{y}"
+        @drawRect @flashContext, x,y,params.outerWidth*@scale, params.outerHeight*@scale
+    else if (params.type == "polygon")
+      aperture.moveTo = (x,y) =>
+        console.log "polygon moveTo #{x}, #{y}"
+      aperture.lineTo = (x,y) =>
+        console.log "polygon lineTo #{x}, #{y}"
+      aperture.flash = (x,y) =>
+        console.log "polygon flash #{x}, #{y}"
     else if (@customShapes[params.type])
+      aperture.moveTo = (x,y) =>
+        console.log "custom moveTo #{x}, #{y}"
+      aperture.lineTo = (x,y) =>
+        console.log "custom lineTo #{x}, #{y}"
       aperture.flash = @customShapes[params.type].flash
     
     @apertureParams[params.code] = params
@@ -157,24 +186,26 @@ class KineticJSAdapter extends RenderAdapter
       points[i] = {x:xi,y:yi}
       
   drawPoly: (ctx,x,y,d,sides, rot) =>
-    ctx.beginPath()
-    ctx.fillStyle = "#0FF"
-    ctx.strokeStyle = "#0FF"
+    if(@visible x,y)
+      ctx.beginPath()
+      ctx.fillStyle = "#0FF"
+      ctx.strokeStyle = "#0FF"
 
-    points = @polyPoints x,y,d,sides,rot
-    ctx.moveTo points[0].x, points[0].y
-    for i in [1..sides]
-      ctx.lineTo points[i].x, points[i].y
+      points = @polyPoints x,y,d,sides,rot
+      ctx.moveTo points[0].x, points[0].y
+      for i in [1..sides]
+        ctx.lineTo points[i].x, points[i].y
 
-    ctx.fill()
+      ctx.fill()
       
   drawRect: (ctx,x,y,w,h) =>
-    ctx.save()
-    ctx.fillStyle = "#FF0"
-    ctx.strokeStyle = "#FF0"
-    ctx.fillRect(x-w/2, y-h/2, w, h);
-    ctx.fill()
-    ctx.restore()
+    if(@visible x, y)
+      ctx.save()
+      ctx.fillStyle = "#FF0"
+      ctx.strokeStyle = "#FF0"
+      ctx.fillRect(x-w/2, y-h/2, w, h);
+      ctx.fill()
+      ctx.restore()
   
   cos: memoize (rads, offset, minus) ->
     if minus
@@ -207,26 +238,28 @@ class KineticJSAdapter extends RenderAdapter
     return points
   
   drawCircleLine: (ctx,x1,y1,x2,y2,d) =>
-    ctx.beginPath()
-    ctx.fillStyle = "#F00"
-    ctx.strokeStyle = "#F00"
+    if(@visible x1, y1 || @visible x2, y2)
+      ctx.beginPath()
+      ctx.fillStyle = "#F00"
+      ctx.strokeStyle = "#F00"
+      r = d/2
+      points = @circPoints x1,y1,x2,y2,r
     
-    points = @circPoints x1,y1,x2,y2,d
-    
-    ctx.arc(x1, y1, d, points.rads+@pi2, points.rads-@pi2, false)
-    ctx.lineTo points.x[2][1], points.y[2][1]
+      ctx.arc(x1, y1, r, points.rads + @pi2, points.rads - @pi2, false)
+      ctx.lineTo points.x[2][1], points.y[2][1]
  
-    ctx.arc(x2, y2, d, points.rads-@pi2, points.rads+@pi2, false)
-    ctx.lineTo points.x[1][2], points.y[1][2]
-    #ctx.lineWidth = 1
-    ctx.fill()
+      ctx.arc(x2, y2, r, points.rads - @pi2, points.rads + @pi2, false)
+      ctx.lineTo points.x[1][2], points.y[1][2]
+      ctx.lineWidth = 1
+      ctx.fill()
           
   drawCircle: (ctx,x,y,d) =>
-    ctx.beginPath()
-    ctx.fillStyle = "#F00"
-    ctx.strokeStyle = "#F00"
-    ctx.arc(x, y, d, 0, Math.PI*2, false)
-    ctx.fill()
+    if(@visible x,y)
+      ctx.beginPath()
+      ctx.fillStyle = "#F00"
+      ctx.strokeStyle = "#F00"
+      ctx.arc(x, y, d/2, 0, Math.PI*2, false)
+      ctx.fill()
       
   randomColor: () ->
     color = '#'

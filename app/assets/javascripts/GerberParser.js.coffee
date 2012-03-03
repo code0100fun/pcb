@@ -86,8 +86,8 @@ class GerberParser
     return null if match == null
     return (
       command: @commands[parseInt(match[3])]
-      x: parseFloat(match[1])/1000
-      y: parseFloat(match[2])/1000 
+      x: parseFloat(match[1])/10000
+      y: parseFloat(match[2])/10000
     )
     
   parseFS: (line, match) => # Format specification

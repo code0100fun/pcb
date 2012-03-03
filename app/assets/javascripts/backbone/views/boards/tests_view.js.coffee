@@ -9,6 +9,7 @@ class Pcb.Views.Boards.TestsView extends Backbone.View
     @circleApertureLine()
     @circleApertureShape()
     @flashPolygon()
+    @flashRect()
     
     return this
   
@@ -58,8 +59,8 @@ class Pcb.Views.Boards.TestsView extends Backbone.View
     device = new KineticJSAdapter(canvas[0], 100, 100, 1, 0, 0)
 
     commands = [
-      {"command":"macro","name":"OC8","primative":"polygon","exposure":true,"sides":8,"x":0,"y":0,"diameter":5,"rotation":22.5}
-      {"command":"apertureDef","code":11,"type":"OC8","param1":2}
+      {"command":"macro","name":"OC8","primative":"polygon","exposure":true,"sides":8,"x":0,"y":0,"diameter":50,"rotation":22.5}
+      {"command":"apertureDef","code":11,"type":"OC8","param1":1}
       {"command":"select","code":11}
       {"command":"flash","x":50,"y":50}
       {"command":"end"}
@@ -67,7 +68,19 @@ class Pcb.Views.Boards.TestsView extends Backbone.View
     @sendCommands commands, device
     
     #@drawGrid device
-    
+  
+  flashRect: () =>
+    canvas = @createCanvas('Flash Rectangle')
+    device = new KineticJSAdapter(canvas[0], 100, 100, 1, 0, 0)
+
+    commands = [
+      {"command":"apertureDef","code":10,"type":"rectangle","outerWidth":40, "outerHeight":40, "innerWidth":20, "innerHeight":20}
+      {"command":"select","code":10}
+      {"command":"flash","x":50,"y":50}
+      {"command":"end"}
+    ]
+    @sendCommands commands, device
+        
   createCanvas: (title) =>
     canvas = $('<div class="testCanvas"/>')
     container = $('<div class="testBox"/>')

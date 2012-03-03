@@ -67,11 +67,12 @@ class Pcb.Views.Boards.ShowView extends Backbone.View
   initialize : () =>
     #@loadLines()
     $(@el).html(@template({name:'test'}))
-    @device = new KineticJSAdapter(this.$('#canvas')[0], 1000, 450, 15, 100, 100)
+    @device = new KineticJSAdapter(this.$('#canvas')[0], 1000, 450, 200, 1200, 1200)
     @parser = new GerberParser()
     #@commands = @parser.parse(@lines)
   
   loadFile: (evt) =>
+    #console.log JSON.stringify evt.originalEvent
     file = evt.originalEvent.srcElement.files[0]
     #console.log "start"
     #console.log file
