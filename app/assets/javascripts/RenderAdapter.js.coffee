@@ -25,7 +25,7 @@ class KineticJSAdapter extends RenderAdapter
     @scale = scale || 5
     @scaleOffset = 1
     @scaleFactor = 1.01
-    @minPixels = 3
+    @minPixels = 5
     @lastX = 0
     @lastY = 0
     @letters = '0123456789ABCDEF'.split('')
@@ -276,9 +276,6 @@ class KineticJSAdapter extends RenderAdapter
     yt = @transformY params.y
     @position = {x:xt,y:yt}
     @apertures[@aperture].moveTo xt, yt, @apertureParams[@aperture]
-    #@context.moveTo xt, yt
-    if(!@firstmove)
-      @firstmove = {x:xt,y:yt}
   
   transformX: (x) =>
     (x*@scale)+@x
@@ -300,9 +297,6 @@ class KineticJSAdapter extends RenderAdapter
         
   end: (params) =>
     if(@context.drawingPath)
-      if(@firstmove)
-        @moveTo(@firstmove) 
-      @context.stroke()
       @context.drawingPath = false
     
   # Adds ctx.getTransform() - returns an SVGMatrix
