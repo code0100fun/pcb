@@ -6,21 +6,15 @@ class KineticJSAdapter extends RenderAdapter
     console.log('KineticJSAdapter ctor')
     @stage = new Kinetic.Stage(elem, width||1000, height||450)
     @layer = new Kinetic.Layer()
-    @flashLayer = new Kinetic.Layer()
     @canvas = @layer.canvas
     @context = @canvas.getContext('2d')
-    @flashContext = @flashLayer.canvas.getContext('2d')
     @trackTransforms(@context)
-    #@trackTransforms(@flashContext)
     
     #--------- Cached Values
-    @cachedPolyAngles = {}
-    @cachedPolyPoints = {}
     @pi2 = Math.PI/2
     @degToRad = Math.PI/180
     #---------------------
     
-    @stage.add(@flashLayer)
     @stage.add(@layer)
     
     @customShapes = {}
@@ -31,6 +25,7 @@ class KineticJSAdapter extends RenderAdapter
     @scale = scale || 5
     @scaleOffset = 1
     @scaleFactor = 1.01
+    @minPixels = 3
     @lastX = 0
     @lastY = 0
     @letters = '0123456789ABCDEF'.split('')
@@ -39,19 +34,17 @@ class KineticJSAdapter extends RenderAdapter
       @lastY = evt.offsetY || (evt.pageY - canvas.offsetTop)
     
     @updateBounds()
-  
+
   moveX : (val) =>  
-    @context.translate((val/@scaleOffset)*0.5, 0);
-    @flashContext.translate((val/@scaleOffset)*0.5, 0);
+    # scale mouse move based on zoom
+    @context.translate(val*(@detail/@minPixels), 0);
     @clear(@context)
-    @clear(@flashContext)
     @updateBounds()
     
   moveY : (val) =>  
-    @context.translate(0, (val/@scaleOffset)*0.5);
-    @flashContext.translate(0, (val/@scaleOffset)*0.5);
+    # scale mouse move based on zoom
+    @context.translate(0, val*(@detail/@minPixels));
     @clear(@context)
-    @clear(@flashContext)
     @updateBounds()
   
   zoom : (val, center) =>
@@ -61,20 +54,18 @@ class KineticJSAdapter extends RenderAdapter
       pt = @context.transformedPoint(@lastX,@lastY)
     
     @context.translate(pt.x,pt.y)
-    #console.log @context.getTransform()
-    @flashContext.translate(pt.x,pt.y)
     @scaleOffset = Math.pow(@scaleFactor,val)
     @context.scale(@scaleOffset,@scaleOffset)
-    @flashContext.scale(@scaleOffset,@scaleOffset)
     @context.translate(-pt.x,-pt.y)
-    @flashContext.translate(-pt.x,-pt.y)
     @clear(@context)
-    @clear(@flashContext)
     @drawCrosshair(pt.x,pt.y)
     @updateBounds()
     
   updateBounds: () =>
+    # prevents rendering of offscreen geometry
     @topLeft = @context.transformedPoint 0,0
+    detail = @context.transformedPoint @minPixels,0
+    @detail = detail.x - @topLeft.x
     @botRight = @context.transformedPoint @canvas.width,@canvas.height
     
   clear: (ctx) =>
@@ -82,7 +73,6 @@ class KineticJSAdapter extends RenderAdapter
     ctx.setTransform(1,0,0,1,0,0) 
     ctx.clearRect(0,0,ctx.canvas.width,ctx.canvas.height) 
     ctx.restore()
-    #@layer.draw()
   
   visible: (x,y) =>
     return !!(x > @topLeft.x && x < @botRight.x && y > @topLeft.y && y < @botRight.y)
@@ -108,7 +98,7 @@ class KineticJSAdapter extends RenderAdapter
   macro: (params) =>
     @customShapes[params.name] = params
     @customShapes[params.name].flash = (x,y,p) =>
-      @drawPoly @flashContext,x,y,
+      @drawPoly @context,x,y,
       (p.param1||1)*(params.diameter||1) * @scale,
       params.sides,
       params.rotation
@@ -127,20 +117,20 @@ class KineticJSAdapter extends RenderAdapter
     @context.fillStyle = "#F00"
     
     if(params.type == "circle")
-      width = params.outerDiam * @scale#todo - figure out proper scale
+      width = params.outerDiam * @scale
       aperture.moveTo = (x,y) =>
       aperture.lineTo = (x,y) =>
         @drawCircleLine(@context, x,y, @position.x, @position.y, width)
       aperture.flash = (x,y) =>
-        @drawCircle(@flashContext, x, y, width)
+        @drawCircle(@context, x, y, width)
     else if (params.type == "rectangle")
       aperture.moveTo = (x,y) =>
-        #console.log "rectangle moveTo #{x}, #{y}"
+        
       aperture.lineTo = (x,y) =>
         console.log "rectangle lineTo #{x}, #{y}"
       aperture.flash = (x,y) =>
-        #console.log "rectangle flash #{x}, #{y}"
-        @drawRect @flashContext, x,y,params.outerWidth*@scale, params.outerHeight*@scale
+        
+        @drawRect @context, x,y,params.outerWidth*@scale, params.outerHeight*@scale
     else if (params.type == "polygon")
       aperture.moveTo = (x,y) =>
         console.log "polygon moveTo #{x}, #{y}"
@@ -239,19 +229,29 @@ class KineticJSAdapter extends RenderAdapter
   
   drawCircleLine: (ctx,x1,y1,x2,y2,d) =>
     if(@visible x1, y1 || @visible x2, y2)
-      ctx.beginPath()
-      ctx.fillStyle = "#F00"
-      ctx.strokeStyle = "#F00"
-      r = d/2
-      points = @circPoints x1,y1,x2,y2,r
+      if(d<@detail)
+        ctx.beginPath()
+        ctx.fillStyle = "#0F0"
+        ctx.strokeStyle = "#0F0"
+        ctx.moveTo x2, y2
+        ctx.lineTo x1, y1
+        ctx.lineWidth = 1.5
+        ctx.stroke()
+        ctx.closePath()
+      else
+        ctx.beginPath()
+        ctx.fillStyle = "#F00"
+        ctx.strokeStyle = "#F00"
+        r = d/2
+        points = @circPoints x1,y1,x2,y2,r
     
-      ctx.arc(x1, y1, r, points.rads + @pi2, points.rads - @pi2, false)
-      ctx.lineTo points.x[2][1], points.y[2][1]
+        ctx.arc(x1, y1, r, points.rads + @pi2, points.rads - @pi2, false)
+        ctx.lineTo points.x[2][1], points.y[2][1]
  
-      ctx.arc(x2, y2, r, points.rads - @pi2, points.rads + @pi2, false)
-      ctx.lineTo points.x[1][2], points.y[1][2]
-      ctx.lineWidth = 1
-      ctx.fill()
+        ctx.arc(x2, y2, r, points.rads - @pi2, points.rads + @pi2, false)
+        ctx.lineTo points.x[1][2], points.y[1][2]
+        ctx.lineWidth = 1
+        ctx.fill()
           
   drawCircle: (ctx,x,y,d) =>
     if(@visible x,y)
@@ -276,6 +276,7 @@ class KineticJSAdapter extends RenderAdapter
     yt = @transformY params.y
     @position = {x:xt,y:yt}
     @apertures[@aperture].moveTo xt, yt, @apertureParams[@aperture]
+    #@context.moveTo xt, yt
     if(!@firstmove)
       @firstmove = {x:xt,y:yt}
   
