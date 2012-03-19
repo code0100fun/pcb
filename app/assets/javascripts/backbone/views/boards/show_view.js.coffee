@@ -10,11 +10,11 @@ class Pcb.Views.Boards.ShowView extends Backbone.View
     "click #moveRight" : "moveRight"
     "click #moveUp"    : "moveUp"
     "click #moveDown"  : "moveDown"
-    "mousewheel #canvas canvas" : "mouseWheel"
-    "mousedown #canvas canvas"  : "mouseDown"
-    "mousemove #canvas canvas"  : "mouseMove"
-    "mouseup #canvas canvas"    : "mouseUp"
-    "mouseleave #canvas canvas" : "mouseUp"
+    "mousewheel .panel canvas" : "mouseWheel"
+    "mousedown .panel canvas"  : "mouseDown"
+    "mousemove .panel canvas"  : "mouseMove"
+    "mouseup .panel canvas"    : "mouseUp"
+    "mouseleave .panel canvas" : "mouseUp"
     "change #file" : "loadFile"
   mouseDown: (e) =>  
     @draging = true
@@ -57,19 +57,16 @@ class Pcb.Views.Boards.ShowView extends Backbone.View
     @render()
     
   render: =>
-    #console.log "render"
-    #@device.clear()
-    #console.log JSON.stringify @commands
-    for i,command of @commands
-      @device[command.command](command) if command != null && @device[command.command]
+    $(@el).css({height:'100%'})
+    @device.render()
     return this
     
   initialize : () =>
-    #@loadLines()
     $(@el).html(@template({name:'test'}))
-    @device = new KineticJSAdapter(this.$('#canvas')[0], 1000, 450, 200, 1200, 1200)
+    @device = new KineticJSAdapter(this.$('.panel')[0], 800, 450, 200, 1200, 1200)
     @parser = new GerberParser()
-    #@commands = @parser.parse(@lines)
+    @colors = ["#F00", "#0FF", "#00F", "#FF0", "#FFF"]
+    @color = 0
   
   loadFile: (evt) =>
     #console.log JSON.stringify evt.originalEvent
@@ -78,11 +75,10 @@ class Pcb.Views.Boards.ShowView extends Backbone.View
     #console.log file
     reader = new FileReader()
     reader.onload = (e) =>
-        # Here's where you would parse the first few lines of the CSV file
-        #console.log e.target.result
         @lines = e.target.result.split(/\s+/m)
-        #console.log @lines
-        @commands = @parser.parse(@lines)
+        commands = @parser.parse(@lines)
+        # add layer to device passing commands for new layer
+        @device.addLayer commands, @colors[@color++]
         @render()
         
     reader.readAsText(file)

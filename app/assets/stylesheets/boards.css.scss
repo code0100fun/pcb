@@ -3,10 +3,20 @@
 // You can use Sass (SCSS) here: http://sass-lang.com/
 #canvas
 {
-  border: 1px solid black;
-  height: 450px;
-  width: 1000px;
+}
+
+html, body
+{
+  height:100%;
+}
+.panel canvas
+{
+  border: 2px solid gray;
+  display: inline-block;
+  vertical-align: top;
   background-color:#000;
+  width:800px;
+  height:450px;
 }
 
 .isResizable {
@@ -34,4 +44,20 @@
   display: inline-block;
   padding:10px;
   max-width: 100px;
+}
+
+#layers
+{
+
+  display: inline-block;
+  width:10%;
+  min-height: 200px;
+  height: 80%;
+}
+
+.panel
+{
+  width: 100%;
+  height:100%;
+  display:block;
 }

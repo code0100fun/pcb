@@ -10,9 +10,23 @@ class Pcb.Views.Boards.TestsView extends Backbone.View
     @circleApertureShape()
     @flashPolygon()
     @flashRect()
+    @circle()
     
     return this
   
+  circle: () =>
+    canvas = @createCanvas("Circle")
+    device = new KineticJSAdapter(canvas[0], 100, 100, 1, 0, 0)
+
+    commands = [
+      {"command":"apertureDef","code":10,"type":"circle","outerDiam":100}
+      {"command":"select","code":10}
+      {"command":"moveTo","x":50,"y":50}
+      {"command":"drawTo","x":50,"y":50}
+      {"command":"end"}
+    ]
+    @sendCommands commands, device
+    
   circleApertureLine: () =>
     canvas = @createCanvas("Circle Aperture")
     device = new KineticJSAdapter(canvas[0], 100, 100, 1, 0, 0)
@@ -90,6 +104,6 @@ class Pcb.Views.Boards.TestsView extends Backbone.View
     
    
   sendCommands: (commands, device) =>
-    for i,command of commands
-      device[command.command](command) if command != null && device[command.command]
+    device.addLayer commands, "#FFF"
+    device.render()
     

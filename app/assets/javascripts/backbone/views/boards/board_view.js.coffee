@@ -15,5 +15,6 @@ class Pcb.Views.Boards.BoardView extends Backbone.View
     return false
 
   render: ->
+    $(@el).css({height:'100%'})
     $(@el).html(@template(@model.toJSON() ))
     return this

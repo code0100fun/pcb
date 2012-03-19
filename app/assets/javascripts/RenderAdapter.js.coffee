@@ -3,7 +3,6 @@ class RenderAdapter
     
 class KineticJSAdapter extends RenderAdapter
   constructor: (elem, width, height, scale, x, y) ->
-    console.log('KineticJSAdapter ctor')
     @stage = new Kinetic.Stage(elem, width||1000, height||450)
     @layer = new Kinetic.Layer()
     @canvas = @layer.canvas
@@ -17,49 +16,94 @@ class KineticJSAdapter extends RenderAdapter
     
     @stage.add(@layer)
     
+    @layers = []
     @customShapes = {}
     @apertures = {}
     @apertureParams = {}
+    
     @x = x == undefined ? 10 : x
     @y = y == undefined ? 10 : y
     @scale = scale || 5
-    @scaleOffset = 1
     @scaleFactor = 1.01
-    @minPixels = 5
+    @minPixels = 3
     @lastX = 0
     @lastY = 0
     @letters = '0123456789ABCDEF'.split('')
-    @canvas.addEventListener 'mousemove', (evt) =>
-      @lastX = evt.offsetX || (evt.pageX - canvas.offsetLeft)  
-      @lastY = evt.offsetY || (evt.pageY - canvas.offsetTop)
     
+    
+    window.addEventListener('resize', @resize, false)
+    
+    @canvas.addEventListener 'mousemove', (evt) =>
+      #console.log evt
+      #console.log @canvas.offsetLeft
+      #console.log @canvas.offsetTop
+      @lastX = evt.offsetX || (evt.pageX - @canvas.offsetLeft)  
+      @lastY = evt.offsetY || (evt.pageY - @canvas.offsetTop)
+    
+    @resize()
+  
+  resize: () =>
+    @context.save() 
+    @context.setTransform(1,0,0,1,0,0)
+    #console.log $('body').width(), $('body').height()
+    #$(@canvas).width($('.panel').width())
+    #$(@canvas).height($('.panel').height())
+    #@canvas.width = $('.panel').width()
+    #@canvas.height = $('.panel').height()
+    @context.restore()
     @updateBounds()
-
+    @render()
+  
+  setWidth: () =>
+    
+  
+  addLayer: (commands, color) =>
+    layer = { commands: commands, color:color, name:name }
+    @layers.push layer
+    @updateBounds()
+    @render()
+      
+  render: () =>
+    start = new Date;
+    for i,layer of @layers
+      @color = layer.color
+      for j,command of layer.commands
+        this[command.command](command) if command != null && this[command.command]
+    end = new Date;
+    #console.log("Render Time: #{end - start}")
+    @context.fillStyle = "#0FF"
+    @context.font = "bold #{(@detail/@minPixels) *12}px sans-serif"
+    pt = @context.transformedPoint 20,20
+    @context.fillText(end - start, pt.x, pt.y)
+  
   moveX : (val) =>  
     # scale mouse move based on zoom
     @context.translate(val*(@detail/@minPixels), 0);
     @clear(@context)
     @updateBounds()
+    @render()
     
   moveY : (val) =>  
     # scale mouse move based on zoom
     @context.translate(0, val*(@detail/@minPixels));
     @clear(@context)
     @updateBounds()
+    @render()
   
   zoom : (val, center) =>
     if(center)
-      pt = @context.transformedPoint(500,225)
+      pt = @context.transformedPoint(@canvas.width/2,@canvas.height/2)
     else
       pt = @context.transformedPoint(@lastX,@lastY)
     
     @context.translate(pt.x,pt.y)
-    @scaleOffset = Math.pow(@scaleFactor,val)
-    @context.scale(@scaleOffset,@scaleOffset)
+    scale = Math.pow(@scaleFactor,val)
+    @context.scale(scale,scale)
     @context.translate(-pt.x,-pt.y)
     @clear(@context)
     @drawCrosshair(pt.x,pt.y)
     @updateBounds()
+    @render()
     
   updateBounds: () =>
     # prevents rendering of offscreen geometry
@@ -84,7 +128,7 @@ class KineticJSAdapter extends RenderAdapter
     @context.moveTo(x-4, y)
     @context.lineTo(x+4, y)
     @context.lineWidth = 1
-    @context.strokeStyle = "#F00"
+    @context.strokeStyle = @color
     @context.stroke()
     @context.closePath()
         
@@ -113,8 +157,8 @@ class KineticJSAdapter extends RenderAdapter
     @aperture = params.code
     
     @context.lineWidth = aperture.lineWidth;
-    @context.strokeStyle = "#F00"
-    @context.fillStyle = "#F00"
+    @context.strokeStyle = @color
+    @context.fillStyle = @color
     
     if(params.type == "circle")
       width = params.outerDiam * @scale
@@ -127,22 +171,16 @@ class KineticJSAdapter extends RenderAdapter
       aperture.moveTo = (x,y) =>
         
       aperture.lineTo = (x,y) =>
-        console.log "rectangle lineTo #{x}, #{y}"
       aperture.flash = (x,y) =>
         
         @drawRect @context, x,y,params.outerWidth*@scale, params.outerHeight*@scale
     else if (params.type == "polygon")
       aperture.moveTo = (x,y) =>
-        console.log "polygon moveTo #{x}, #{y}"
       aperture.lineTo = (x,y) =>
-        console.log "polygon lineTo #{x}, #{y}"
       aperture.flash = (x,y) =>
-        console.log "polygon flash #{x}, #{y}"
     else if (@customShapes[params.type])
       aperture.moveTo = (x,y) =>
-        console.log "custom moveTo #{x}, #{y}"
       aperture.lineTo = (x,y) =>
-        console.log "custom lineTo #{x}, #{y}"
       aperture.flash = @customShapes[params.type].flash
     
     @apertureParams[params.code] = params
@@ -153,20 +191,18 @@ class KineticJSAdapter extends RenderAdapter
     tmpCanvas.height = height
     tmpCanvas.getContext('2d')
   
-  polyAngles: memoize (sides, rot) ->
-    #console.log "polyAngles #{sides},#{rot}"
+  polyAngles: (sides, rot) ->
     angles = []
     pi2_s = (2 * Math.PI) / sides
-    rotRad = rot*(Math.PI/180)
+    rotRad = rot*@degToRad
 
     for i in [0..sides]
       angles[i] = {
-        cos: Math.cos((pi2_s * i)+rotRad)
-        sin: Math.sin((pi2_s * i)+rotRad)
+        cos: @cos((pi2_s * i)+rotRad)
+        sin: @sin((pi2_s * i)+rotRad)
       }
       
   polyPoints: memoize (x,y,d,sides,rot) ->
-    #console.log "polyPoints #{x} #{y} #{d} #{sides} #{rot}"
     r = d/2
     angles = @polyAngles sides, rot
     points = []
@@ -178,8 +214,8 @@ class KineticJSAdapter extends RenderAdapter
   drawPoly: (ctx,x,y,d,sides, rot) =>
     if(@visible x,y)
       ctx.beginPath()
-      ctx.fillStyle = "#0FF"
-      ctx.strokeStyle = "#0FF"
+      ctx.fillStyle = @color
+      ctx.strokeStyle = @color
 
       points = @polyPoints x,y,d,sides,rot
       ctx.moveTo points[0].x, points[0].y
@@ -191,25 +227,17 @@ class KineticJSAdapter extends RenderAdapter
   drawRect: (ctx,x,y,w,h) =>
     if(@visible x, y)
       ctx.save()
-      ctx.fillStyle = "#FF0"
-      ctx.strokeStyle = "#FF0"
+      ctx.fillStyle = @color
+      ctx.strokeStyle = @color
       ctx.fillRect(x-w/2, y-h/2, w, h);
       ctx.fill()
       ctx.restore()
   
-  cos: memoize (rads, offset, minus) ->
-    if minus
-      return Math.cos(rads - offset)
-    else
-      return Math.cos(rads + offset)
+  cos: memoize1 Math.cos
   
-  sin: memoize (rads, offset, minus) ->
-    if minus
-      return Math.sin(rads - offset)
-    else
-      return Math.sin(rads + offset)
+  sin: memoize1 Math.sin
       
-  atan2: memoize (dy, dx) ->
+  atan2: memoize2 (dy, dx) ->
     return Math.atan2(dy, dx)
           
   circPoints: memoize (x1, y1, x2, y2, r) ->
@@ -217,22 +245,44 @@ class KineticJSAdapter extends RenderAdapter
     dy = y2 - y1
     points = { x:{1:{},2:{}}, y: {1:{},2:{}} }
     points.rads = @atan2(dy, dx)
-    #points.x[1][1] = x1 + r * @cos(points.rads, @pi2, true)
-    #points.y[1][1] = y1 + r * @sin(points.rads, @pi2, true)
-    points.x[1][2] = x1 + r * @cos(points.rads, @pi2, false)
-    points.y[1][2] = y1 + r * @sin(points.rads, @pi2, false)
-    points.x[2][1] = x2 + r * @cos(points.rads, @pi2, true)
-    points.y[2][1] = y2 + r * @sin(points.rads, @pi2, true)
-    #points.x[2][2] = x2 + r * @cos(points.rads, @pi2, false)
-    #points.y[2][2] = y2 + r * @sin(points.rads, @pi2, false)
+    points.x[1][1] = x1 + r * @cos(points.rads - @pi2)
+    points.y[1][1] = y1 + r * @sin(points.rads - @pi2)
+    points.x[1][2] = x1 + r * @cos(points.rads + @pi2)
+    points.y[1][2] = y1 + r * @sin(points.rads + @pi2)
+    points.x[2][1] = x2 + r * @cos(points.rads - @pi2)
+    points.y[2][1] = y2 + r * @sin(points.rads - @pi2)
+    #points.x[2][2] = x2 + r * @cos(points.rads + @pi2)
+    #points.y[2][2] = y2 + r * @sin(points.rads + @pi2)
     return points
   
+  arcPoints: memoize (x, y, r, start, end, clockwise, segments) ->
+    if clockwise
+      rads_per = (start - end)/segments
+    else
+      rads_per = (end - start)/segments
+    points = []
+    for i in [0..segments]
+      point = {}
+      point.x = x + r * @cos(start + (i * rads_per))
+      point.y = y + r * @sin(start + (i * rads_per))
+      #console.log point
+      points.push point
+    return points
+    
+  drawArc: (ctx, x, y, r, start, end, clockwise) =>
+    points = @arcPoints x, y, r, start, end, clockwise, 6
+    #console.log points
+    for i,p of points
+      #console.log p
+      ctx.lineTo p.x, p.y
+  
   drawCircleLine: (ctx,x1,y1,x2,y2,d) =>
+    ctx.lineCap = "square";
     if(@visible x1, y1 || @visible x2, y2)
       if(d<@detail)
         ctx.beginPath()
-        ctx.fillStyle = "#0F0"
-        ctx.strokeStyle = "#0F0"
+        ctx.fillStyle = "#0F0"#@color
+        ctx.strokeStyle = "#0F0"#@color
         ctx.moveTo x2, y2
         ctx.lineTo x1, y1
         ctx.lineWidth = 1.5
@@ -240,24 +290,34 @@ class KineticJSAdapter extends RenderAdapter
         ctx.closePath()
       else
         ctx.beginPath()
-        ctx.fillStyle = "#F00"
-        ctx.strokeStyle = "#F00"
+        ctx.fillStyle = @color
+        ctx.strokeStyle = "#FFF"
         r = d/2
         points = @circPoints x1,y1,x2,y2,r
-    
-        ctx.arc(x1, y1, r, points.rads + @pi2, points.rads - @pi2, false)
+        
+        ctx.moveTo points.x[1][1], points.y[1][1]
+        #ctx.lineTo points.x[1][1], points.y[1][1]
+        #ctx.lineTo points.x[1][2], points.y[1][2]
+        #ctx.lineTo points.x[2][2], points.y[2][2]
+        #ctx.lineTo points.x[2][1], points.y[2][1]
+        
+        #ctx.arc(x1, y1, r, points.rads + @pi2, points.rads - @pi2, false)
+        @drawArc ctx, x1, y1, r, points.rads + @pi2, points.rads - @pi2, true
         ctx.lineTo points.x[2][1], points.y[2][1]
  
-        ctx.arc(x2, y2, r, points.rads - @pi2, points.rads + @pi2, false)
+        #ctx.arc(x2, y2, r, points.rads - @pi2, points.rads + @pi2, false)
+        @drawArc ctx, x2, y2, r, points.rads - @pi2, points.rads + @pi2, false
         ctx.lineTo points.x[1][2], points.y[1][2]
+        
         ctx.lineWidth = 1
         ctx.fill()
+        #ctx.stroke()
           
   drawCircle: (ctx,x,y,d) =>
     if(@visible x,y)
       ctx.beginPath()
-      ctx.fillStyle = "#F00"
-      ctx.strokeStyle = "#F00"
+      ctx.fillStyle = @color
+      ctx.strokeStyle = @color
       ctx.arc(x, y, d/2, 0, Math.PI*2, false)
       ctx.fill()
       

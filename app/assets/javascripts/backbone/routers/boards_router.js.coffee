@@ -27,6 +27,7 @@ class Pcb.Routers.BoardsRouter extends Backbone.Router
     board = @boards.get(id)
 
     @view = new Pcb.Views.Boards.ShowView(model: board)
+    $("#boards").css({height:'100%'})
     $("#boards").html(@view.render().el)
 
   edit: (id) ->

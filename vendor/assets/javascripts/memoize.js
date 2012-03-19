@@ -20,4 +20,19 @@
         } : function (func) {
             return func;
         });
+        
+    global.memoize1 = function (func) {
+            var cache = {};
+
+            return function (val) {
+                return (val in cache) ? cache[val] : cache[val] = func.call(this, val);
+            };
+        };
+    global.memoize2 = function (func) {
+            var cache = {}; 
+            return function (val1,val2) {
+                var hash = val1.toString() + "," + val2.toString();
+                return (hash in cache) ? cache[hash] : cache[hash] = func.call(this, val1,val2);
+            };
+        };
 }(this));
